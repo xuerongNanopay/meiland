@@ -15,26 +15,52 @@ fn main() -> Result<(), Box<dyn Error>> {
     let model_path = env::args()
         .nth(1)
         .expect("usage: cargo run --example prompt_llama_cpp -- <model.gguf>");
-    let prompt = "What is rust";
     let max_tokens = 1024;
 
     let mut backend = LlamaBackend::init()?;
     backend.void_logs();
+
     let model = LlamaModel::load_from_file(&backend, model_path, &LlamaModelParams::default())?;
     let context_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(512));
     let mut context = model.new_context(&backend, context_params)?;
     let template = model.chat_template(None)?;
-    let messages = json!([
-        { "role": "system", "content": "You are a helpful assistant." },
-        { "role": "user", "content": prompt },
+
+    let tools_json = json!([
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Fetch current weather by city.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": { "type": "string" }
+                    },
+                    "required": ["location"]
+                }
+            }
+        }
     ])
     .to_string();
+
+    let messages_json = json!([
+        {
+            "role": "system",
+            "content": "You are a tool caller."
+        },
+        {
+            "role": "user",
+            "content": "Fetch the weather in Paris."
+        }
+    ])
+    .to_string();
+
     let formatted_prompt = model.apply_chat_template_oaicompat(
         &template,
         &OpenAIChatTemplateParams {
-            messages_json: &messages,
-            tools_json: None,
-            tool_choice: None,
+            messages_json: &messages_json,
+            tools_json: Some(&tools_json),
+            tool_choice: Some("auto"),
             json_schema: None,
             grammar: None,
             reasoning_format: None,
@@ -48,17 +74,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             parse_tool_calls: false,
         },
     )?;
+
     let prompt_tokens = model.str_to_token(&formatted_prompt.prompt, AddBos::Always)?;
     let mut batch = LlamaBatch::new(prompt_tokens.len(), 1);
     batch.add_sequence(&prompt_tokens, 0, false)?;
     context.decode(&mut batch)?;
 
     let mut decoder = encoding_rs::UTF_8.new_decoder();
-    let mut sampler = LlamaSampler::greedy();
+    let mut sampler =
+        LlamaSampler::chain_simple([LlamaSampler::temp(0.8), LlamaSampler::dist(1234)]);
     let mut position = prompt_tokens.len() as i32;
     let mut result = String::new();
 
-    print!("{prompt}");
     for _ in 0..max_tokens {
         let token = sampler.sample(&context, batch.n_tokens() - 1);
         sampler.accept(token);
