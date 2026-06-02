@@ -11,6 +11,7 @@ use std::error::Error;
 use std::io::{self, Write};
 use std::num::NonZeroU32;
 
+/// Usage: cargo run --example llama_tool_call -- {GGUF_PATH}
 fn main() -> Result<(), Box<dyn Error>> {
     let model_path = env::args()
         .nth(1)
