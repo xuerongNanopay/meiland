@@ -4,6 +4,7 @@ use actix_web::post;
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
 use llama_cpp_2::{llama_backend::LlamaBackend, model::{LlamaChatTemplate, LlamaModel, params::LlamaModelParams}, openai::OpenAIChatTemplateParams};
 use serde_json::Value;
+use llama_cpp_2::model::AddBos;
 use std::{env, fmt::format, path::PathBuf};
 
 const HOST_NAME: &str = "127.0.0.1";
@@ -18,7 +19,14 @@ struct Llama {
 
 // aync fn chat_complete()
 
-fn run_llama_complete(llama: &Llama, body: &str) -> Result<String, String> {
+fn run_llama_complete(
+    Llama { 
+        backend, 
+        model, 
+        template, 
+        model_path 
+    }: &Llama, body: &str
+) -> Result<String, String> {
     let request: Value = serde_json::from_str(body).map_err(|e| format!("invalid json: {e}"))?;
 
     let messages = request
@@ -57,11 +65,16 @@ fn run_llama_complete(llama: &Llama, body: &str) -> Result<String, String> {
 
     };
 
-    let tpl_result = llama.model
-        .apply_chat_template_oaicompat(&llama.template, &params)
-        .map_err(|e| format!("Error: {e}"))?;
+    let tpl_result = model
+        .apply_chat_template_oaicompat(template, &params)
+        .map_err(|e| format!("Template Error: {e}"))?;
 
     println!("Template Result: \n{}", tpl_result.prompt);
+
+    let tokens = model
+        .str_to_token(&tpl_result.prompt, AddBos::Always)
+        .map_err(|e| format!("Token Error: {e}"))?;
+
 
     Err("Todo".to_owned())
 }
