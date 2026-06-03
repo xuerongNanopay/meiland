@@ -1,13 +1,28 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, get};
 
-#[get("/")]
-async fn server_description() -> impl Responder {
-    HttpResponse::Ok().body("Simple Ollama Server")
-}
 
 #[get("/complete")]
 async fn llama_complete() -> impl Responder {
     HttpResponse::Ok().body("TODO: llama_complete")
+}
+
+#[get("/")]
+async fn server_description() -> impl Responder {
+    HttpResponse::Ok().content_type("application/json").body(
+        r#"{
+  "name": "Simple Ollama Server",
+  "status": "ok",
+  "endpoints": [
+    {
+        endpoint: "/complete",
+        usage: "
+            asdfads
+            adsf
+        "
+    }
+  ]
+}"#,
+    )
 }
 
 #[actix_web::main]
