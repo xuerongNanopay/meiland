@@ -11,9 +11,16 @@ struct Llama {
 
 // aync fn chat_complete()
 
+fn run_llama_complete(llama: &Llama, body: &str) -> Result<String, String> {
+    Err("Todo".to_owned())
+}
+
 #[get("/chat_complete")]
-async fn llama_complete() -> impl Responder {
-    HttpResponse::Ok().body("TODO: llama_complete")
+async fn llama_complete(ctx: web::Data<Llama>, body: String) -> impl Responder {
+    match run_llama_complete(&ctx, &body) {
+        Ok(body) => HttpResponse::Ok().body(body),
+        Err(error_message) => HttpResponse::BadRequest().body(error_message)
+    }
 }
 
 #[get("/")]
