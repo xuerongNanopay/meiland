@@ -1,5 +1,5 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, get};
-use llama_cpp_2::{llama_backend::LlamaBackend, model::{LlamaChatTemplate, LlamaModel}};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use llama_cpp_2::{llama_backend::LlamaBackend, model::{LlamaChatTemplate, LlamaModel, params::LlamaModelParams}};
 use std::{env, path::PathBuf};
 
 struct Llama {
@@ -42,13 +42,30 @@ async fn main() -> std::io::Result<()> {
         std::process::exit(2);
     });
 
+    let backend = LlamaBackend::init().map_err(|err| std::io::Error::other(err.to_string()))?;
+    let params = LlamaModelParams::default();
+    let model = LlamaModel::load_from_file(&backend, &model_path, &params)
+        .map_err(|err| std::io::Error::other(err.to_string()))?;
+    let template = model.chat_template(None).map_err(|err| std::io::Error::other(err.to_string()))?;
+
+    // Initial LLM.
+    let llama = Llama {
+        backend,
+        model,
+        template,
+        model_path,
+    };
+
+    let ctx = web::Data::new(llama);
+
     let hostname = "127.0.0.1";
     let port = 8080;
 
     println!("Help: `curl http://{hostname}:{port}`");
 
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
+            .app_data(ctx.clone())        
             .service(server_description)
             .service(llama_complete)
     })
