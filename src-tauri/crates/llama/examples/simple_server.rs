@@ -1,3 +1,4 @@
+use actix_web::post;
 #[warn(dead_code)]
 
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
@@ -56,11 +57,33 @@ fn run_llama_complete(llama: &Llama, body: &str) -> Result<String, String> {
 
     };
 
-    
+    let tpl_result = llama.model
+        .apply_chat_template_oaicompat(&llama.template, &params)
+        .map_err(|e| format!("Error: {e}"))?;
+
+    println!("Template Result: \n{}", tpl_result.prompt);
+
     Err("Todo".to_owned())
 }
 
-#[get("/chat_complete")]
+
+/*
+curl --location 'localhost:4444/chat_complete' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "model": "dummy-model",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are an helpful assistant Tess"
+      },
+      {
+        "role": "user",
+        "content": "What is your name?"
+      }
+    ]
+  }'
+*/
 async fn llama_complete(ctx: web::Data<Llama>, body: String) -> impl Responder {
     match run_llama_complete(&ctx, &body) {
         Ok(body) => HttpResponse::Ok().body(body),
@@ -94,7 +117,7 @@ async fn main() -> std::io::Result<()> {
     });
 
     let mut backend = LlamaBackend::init().map_err(|err| std::io::Error::other(err.to_string()))?;
-    // backend.void_logs();
+    backend.void_logs();
     let params = LlamaModelParams::default();
     let model = LlamaModel::load_from_file(&backend, &model_path, &params)
         .map_err(|err| std::io::Error::other(err.to_string()))?;
@@ -116,7 +139,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(ctx.clone())        
             .service(server_description)
-            .service(llama_complete)
+            .route("/chat_complete", web::post().to(llama_complete))
     })
     .bind((HOST_NAME, PORT))?
     .run()
