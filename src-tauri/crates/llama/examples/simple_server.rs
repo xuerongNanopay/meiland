@@ -1,6 +1,12 @@
+#[warn(dead_code)]
+
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
-use llama_cpp_2::{llama_backend::LlamaBackend, model::{LlamaChatTemplate, LlamaModel, params::LlamaModelParams}};
-use std::{env, path::PathBuf};
+use llama_cpp_2::{llama_backend::LlamaBackend, model::{LlamaChatTemplate, LlamaModel, params::LlamaModelParams}, openai::OpenAIChatTemplateParams};
+use serde_json::Value;
+use std::{env, fmt::format, path::PathBuf};
+
+const HOST_NAME: &str = "127.0.0.1";
+const PORT: u16 = 4444;
 
 struct Llama {
     backend: LlamaBackend,
@@ -12,6 +18,45 @@ struct Llama {
 // aync fn chat_complete()
 
 fn run_llama_complete(llama: &Llama, body: &str) -> Result<String, String> {
+    let request: Value = serde_json::from_str(body).map_err(|e| format!("invalid json: {e}"))?;
+
+    let messages = request
+        .get("messages")
+        .ok_or_else(|| format!("missing messages"))?;
+
+    if !messages.is_array() {
+        return Err(format!("messages must be an array"));
+    }
+
+    let messages_json = messages.to_string();
+
+    let temperature = request
+        .get("temperature")
+        .and_then(Value::as_f64)
+        .unwrap_or(1.0) as f32;
+    if temperature < 0.0 {
+        return Err(format!("temperature must be between 0 and 1"));
+    }
+
+    let params = OpenAIChatTemplateParams {
+        messages_json: messages_json.as_ref(),
+        tools_json: None,
+        tool_choice: None,
+        json_schema: None,
+        grammar: None,
+        reasoning_format: None,
+        chat_template_kwargs: None,
+        add_generation_prompt: true,
+        use_jinja: true,
+        parallel_tool_calls: false,
+        enable_thinking: true,
+        add_bos: false,
+        add_eos: false,
+        parse_tool_calls: false,
+
+    };
+
+    
     Err("Todo".to_owned())
 }
 
@@ -25,20 +70,19 @@ async fn llama_complete(ctx: web::Data<Llama>, body: String) -> impl Responder {
 
 #[get("/")]
 async fn server_description() -> impl Responder {
-    HttpResponse::Ok().content_type("application/json").body(
-        r#"{
+    HttpResponse::Ok().content_type("application/json").body(format!(
+        r#"{{
   "name": "Simple Ollama Server",
   "status": "ok",
   "endpoints": [
-    {
+    {{
         endpoint: "/chat_complete",
         usage: "
-            asdfads
-            adsf
+            curl http://{HOST_NAME}:{PORT}
         "
-    }
+    }}
   ]
-}"#,
+}}"#),
     )
 }
 
@@ -49,7 +93,8 @@ async fn main() -> std::io::Result<()> {
         std::process::exit(2);
     });
 
-    let backend = LlamaBackend::init().map_err(|err| std::io::Error::other(err.to_string()))?;
+    let mut backend = LlamaBackend::init().map_err(|err| std::io::Error::other(err.to_string()))?;
+    // backend.void_logs();
     let params = LlamaModelParams::default();
     let model = LlamaModel::load_from_file(&backend, &model_path, &params)
         .map_err(|err| std::io::Error::other(err.to_string()))?;
@@ -65,10 +110,7 @@ async fn main() -> std::io::Result<()> {
 
     let ctx = web::Data::new(llama);
 
-    let hostname = "127.0.0.1";
-    let port = 8080;
-
-    println!("Help: `curl http://{hostname}:{port}`");
+    println!("Help: `curl http://{HOST_NAME}:{PORT}`");
 
     HttpServer::new(move || {
         App::new()
@@ -76,7 +118,7 @@ async fn main() -> std::io::Result<()> {
             .service(server_description)
             .service(llama_complete)
     })
-    .bind((hostname, port))?
+    .bind((HOST_NAME, PORT))?
     .run()
     .await
 }
