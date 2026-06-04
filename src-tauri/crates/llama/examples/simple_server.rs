@@ -3,7 +3,7 @@ use actix_web::post;
 
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
 use llama_cpp_2::{context::params::LlamaContextParams, llama_backend::LlamaBackend, llama_batch::LlamaBatch, model::{LlamaChatTemplate, LlamaModel, params::LlamaModelParams}, openai::OpenAIChatTemplateParams, sampling::LlamaSampler};
-use serde_json::Value;
+use serde_json::{Value, json};
 use llama_cpp_2::model::AddBos;
 use std::{env, fmt::format, path::PathBuf};
 use std::num::NonZeroU32;
@@ -120,7 +120,7 @@ fn run_llama_complete(
     let mut decoder = encoding_rs::UTF_8.new_decoder();
 
     // Create sample chain.
-    let temperature = 0.7;
+    let temperature = 0.0;
     let top_k = 40;
     let top_p = 0.95;
     let seed = 42;
@@ -146,7 +146,7 @@ fn run_llama_complete(
         let text = model.token_to_piece(next_token, &mut decoder, true, None)
             .map_err(|e| format!("Llama Token2String Error: {e}"))?;
 
-        println!("token text: {}", text);
+        // println!("token text: {}", text);
         generated_text.push_str(&text);
         completion_tokens += 1;
 
@@ -166,8 +166,28 @@ fn run_llama_complete(
         finish_reason = "length";
     }
 
+    // println!("Result111: \n {}", generated_text);
 
-    Err("Todo".to_owned())
+    let message_json = tpl_result
+        .parse_response_oaicompat(&generated_text, false)
+        .map_err(|e| format!("Llama CharParse Error: {e}"))?;
+
+    let message_value: Value = serde_json::from_str(&message_json)
+        .map_err(|e| format!("Serde Error: {e}"))?;
+
+    let response = json!({
+        "choices": [{
+            "index": 0,
+            "message": message_value,
+            "finish_reason": finish_reason
+        }],
+        "usage": {
+            "prompt_tokens": tokens.len(),
+            "completion_tokens": completion_tokens,
+            "total_tokens": tokens.len() as i32 + completion_tokens
+        }
+    });
+    Ok(response.to_string())
 }
 
 
