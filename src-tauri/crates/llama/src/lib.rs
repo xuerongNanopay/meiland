@@ -1,6 +1,10 @@
 use std::path::PathBuf;
 
-use llama_cpp_2::{context::LlamaContext, llama_backend::LlamaBackend, model::LlamaModel};
+use llama_cpp_2::{
+    context::{LlamaContext, params::LlamaContextParams},
+    llama_backend::LlamaBackend,
+    model::LlamaModel,
+};
 
 enum ModelType {
     Text,
@@ -16,33 +20,37 @@ struct LLMModel {
 
 /**
  * Inference runtime
- * 
+ *
  * owns model/runtime state
  * owns request/result queues
  * owns active slots
  * runs the inferece loop
- * 
+ *
  * TODO:
  *  1. load model
  *  2. start loop
  *  3. terminate
- * 
- * 
+ *
+ *
  */
 struct LlamaInference {
     llm_model: LLMModel,
 }
 
-impl LlamaInference {
-
-
-}
+impl LlamaInference {}
 
 struct LLamaInternal {
     llama_model: LlamaModel,
     llama_backend: LlamaBackend,
-    llama_context: LlamaContext,
+}
 
+impl LLamaInternal {
+    fn new_context(
+        &self,
+        params: LlamaContextParams,
+    ) -> Result<LlamaContext<'_>, llama_cpp_2::LlamaContextLoadError> {
+        self.llama_model.new_context(&self.llama_backend, params)
+    }
 }
 
 struct InferenceTask {
@@ -54,3 +62,4 @@ struct InferenceTask {
 mod tests {
     // use super::*;
 }
+pub mod llama;
