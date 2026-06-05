@@ -1,12 +1,18 @@
 use actix_web::post;
 #[warn(dead_code)]
-
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
-use llama_cpp_2::{context::params::LlamaContextParams, llama_backend::LlamaBackend, llama_batch::LlamaBatch, model::{LlamaChatTemplate, LlamaModel, params::LlamaModelParams}, openai::OpenAIChatTemplateParams, sampling::LlamaSampler};
-use serde_json::{Value, json};
 use llama_cpp_2::model::AddBos;
-use std::{env, fmt::format, path::PathBuf};
+use llama_cpp_2::{
+    context::params::LlamaContextParams,
+    llama_backend::LlamaBackend,
+    llama_batch::LlamaBatch,
+    model::{LlamaChatTemplate, LlamaModel, params::LlamaModelParams},
+    openai::OpenAIChatTemplateParams,
+    sampling::LlamaSampler,
+};
+use serde_json::{Value, json};
 use std::num::NonZeroU32;
+use std::{env, fmt::format, path::PathBuf};
 
 const HOST_NAME: &str = "127.0.0.1";
 const PORT: u16 = 4444;
@@ -21,12 +27,13 @@ struct Llama {
 // aync fn chat_complete()
 
 fn run_llama_complete(
-    Llama { 
-        backend, 
-        model, 
-        template, 
-        model_path 
-    }: &Llama, body: &str
+    Llama {
+        backend,
+        model,
+        template,
+        model_path,
+    }: &Llama,
+    body: &str,
 ) -> Result<String, String> {
     // 1. Extract fields from input or defaul.
     let request: Value = serde_json::from_str(body).map_err(|e| format!("invalid json: {e}"))?;
@@ -65,7 +72,6 @@ fn run_llama_complete(
         add_bos: false,
         add_eos: false,
         parse_tool_calls: false,
-
     };
 
     let tpl_result = model
@@ -77,7 +83,6 @@ fn run_llama_complete(
     let tokens = model
         .str_to_token(&tpl_result.prompt, AddBos::Always)
         .map_err(|e| format!("Llama Token Error: {e}"))?;
-
 
     // 3. Setup context window and batch size.
 
@@ -91,7 +96,8 @@ fn run_llama_complete(
         .with_n_batch(batch_size);
 
     // 4. Initial LLAMA context
-    let mut llama_ctx = model.new_context(backend, ctx_params)
+    let mut llama_ctx = model
+        .new_context(backend, ctx_params)
         .map_err(|e| format!("Llama Context Error: {e}"))?;
 
     // 5. Add tokens into batch
@@ -108,7 +114,8 @@ fn run_llama_complete(
     }
 
     // 6. Inference phase 1: promopting.
-    llama_ctx.decode(&mut batch)
+    llama_ctx
+        .decode(&mut batch)
         .map_err(|e| format!("Llama Decode Error: {e}"))?;
 
     // 6. Inference phase 2: generating.
@@ -136,14 +143,15 @@ fn run_llama_complete(
 
     // Generating next token one by one.
     while cur < max_cur {
-        let next_token = sampler.sample(&llama_ctx, batch.n_tokens()-1);
+        let next_token = sampler.sample(&llama_ctx, batch.n_tokens() - 1);
 
         if model.is_eog_token(next_token) {
             break;
         }
 
         //TODO: dynamic special token.
-        let text = model.token_to_piece(next_token, &mut decoder, true, None)
+        let text = model
+            .token_to_piece(next_token, &mut decoder, true, None)
             .map_err(|e| format!("Llama Token2String Error: {e}"))?;
 
         // println!("token text: {}", text);
@@ -153,12 +161,14 @@ fn run_llama_complete(
         //TODO: support additional stop token.
 
         batch.clear();
-        batch.add(next_token, cur, &[0], true)
+        batch
+            .add(next_token, cur, &[0], true)
             .map_err(|e| format!("Llama Batch Error: {e}"))?;
 
         cur += 1;
 
-        llama_ctx.decode(&mut batch)
+        llama_ctx
+            .decode(&mut batch)
             .map_err(|e| format!("Llama Decode Error: {e}"))?;
     }
 
@@ -172,8 +182,8 @@ fn run_llama_complete(
         .parse_response_oaicompat(&generated_text, false)
         .map_err(|e| format!("Llama CharParse Error: {e}"))?;
 
-    let message_value: Value = serde_json::from_str(&message_json)
-        .map_err(|e| format!("Serde Error: {e}"))?;
+    let message_value: Value =
+        serde_json::from_str(&message_json).map_err(|e| format!("Serde Error: {e}"))?;
 
     let response = json!({
         "choices": [{
@@ -189,7 +199,6 @@ fn run_llama_complete(
     });
     Ok(response.to_string())
 }
-
 
 /*
 curl --location 'localhost:4444/chat_complete' \
@@ -211,14 +220,16 @@ curl --location 'localhost:4444/chat_complete' \
 async fn llama_complete(ctx: web::Data<Llama>, body: String) -> impl Responder {
     match run_llama_complete(&ctx, &body) {
         Ok(body) => HttpResponse::Ok().body(body),
-        Err(error_message) => HttpResponse::BadRequest().body(error_message)
+        Err(error_message) => HttpResponse::BadRequest().body(error_message),
     }
 }
 
 #[get("/")]
 async fn server_description() -> impl Responder {
-    HttpResponse::Ok().content_type("application/json").body(format!(
-        r#"{{
+    HttpResponse::Ok()
+        .content_type("application/json")
+        .body(format!(
+            r#"{{
   "name": "Simple Ollama Server",
   "status": "ok",
   "endpoints": [
@@ -229,8 +240,8 @@ async fn server_description() -> impl Responder {
         "
     }}
   ]
-}}"#),
-    )
+}}"#
+        ))
 }
 
 fn log_model_infos(model: &LlamaModel) {
@@ -250,7 +261,9 @@ async fn main() -> std::io::Result<()> {
     let params = LlamaModelParams::default();
     let model = LlamaModel::load_from_file(&backend, &model_path, &params)
         .map_err(|err| std::io::Error::other(err.to_string()))?;
-    let template = model.chat_template(None).map_err(|err| std::io::Error::other(err.to_string()))?;
+    let template = model
+        .chat_template(None)
+        .map_err(|err| std::io::Error::other(err.to_string()))?;
 
     log_model_infos(&model);
 
@@ -268,7 +281,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .app_data(ctx.clone())        
+            .app_data(ctx.clone())
             .service(server_description)
             .route("/chat_complete", web::post().to(llama_complete))
     })
