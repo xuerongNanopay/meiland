@@ -18,8 +18,19 @@ impl Default for SamplerConfig {
 }
 
 struct SamplerBuilder {
-    
+    config: SamplerConfig
 }
+
+impl SamplerBuilder {
+    fn new(config: SamplerConfig) -> Self {
+        Self { config }
+    }
+
+    fn init_sampler() -> Result<Sampler, String> {
+        Err("TODO".to_owned())
+    }
+}
+
 
 struct Sampler {
 
