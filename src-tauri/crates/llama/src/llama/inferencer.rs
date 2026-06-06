@@ -24,18 +24,21 @@ struct InferenceConfig {
     enable_llama_backend_log: bool,
 }
 
-#[derive(Debug, Clone)]
-struct SampleConfig {
-    seed: u32,
-}
+// #[derive(Debug, Clone)]
+// struct SampleConfig {
+//     seed: u32,
+    
+//     top_k: i32,
 
-impl Default for SampleConfig {
-    fn default() -> Self {
-        Self {
-            seed: 0xFFFFFFFF as u32,
-        }
-    }
-}
+// }
+
+// impl Default for SampleConfig {
+//     fn default() -> Self {
+//         Self {
+//             seed: 0xFFFFFFFF as u32,
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone)]
 struct LLMModel {
