@@ -14,8 +14,9 @@ struct LlamaEngine {
     model: LlamaModel,
 }
 
-struct LlamaSession<'a> {
-    context: LlamaContext<'a>,
+struct LlamaSession<'model> {
+    model: &'model LlamaModel,
+    context: LlamaContext<'model>,
     batch: LlamaBatch<'static>,
 }
 
@@ -45,13 +46,6 @@ impl LlamaEngine {
     }
 }
 
-fn llama_model_load_from_file(
-    model_path: &str,
-    config: LlamaModelParams,
-) -> Result<LlamaModel, String> {
-    if Path::new(model_path).is_file() {
-        return Err("invalid model path".to_owned());
-    }
+impl<'model> LlamaSession<'model> {
 
-    Err("TODO".to_owned())
 }
