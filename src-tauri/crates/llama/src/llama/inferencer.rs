@@ -27,7 +27,7 @@ struct InferenceConfig {
 // #[derive(Debug, Clone)]
 // struct SampleConfig {
 //     seed: u32,
-    
+
 //     top_k: i32,
 
 // }
