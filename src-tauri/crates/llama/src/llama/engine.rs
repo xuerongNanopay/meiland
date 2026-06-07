@@ -11,3 +11,12 @@ struct LlamaSession<'a> {
     context: LlamaContext<'a>,
     batch: LlamaBatch<'static>
 }
+
+impl LlamaEngine {
+
+    fn with_file(model_path: &str) -> Result<Self, String> {
+        Err("TODO".to_owned())
+    }
+
+
+}
