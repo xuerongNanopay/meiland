@@ -14,7 +14,7 @@ struct LlamaSession<'a> {
 
 impl LlamaEngine {
 
-    fn with_file(model_path: &str) -> Result<Self, String> {
+    fn from_file(model_path: &str) -> Result<Self, String> {
         Err("TODO".to_owned())
     }
 
