@@ -66,7 +66,7 @@ impl LlamaInferencer {
     fn with_model_path(model_path: &str) -> Result<Self, String> {
         Err("TODO".to_owned())
     }
-    
+
     fn new(config: InferenceConfig) -> Result<Self, String> {
         let mut llama_backend =
             LlamaBackend::init().map_err(|e| format!("Init Llama Backend Error: {e}"))?;
