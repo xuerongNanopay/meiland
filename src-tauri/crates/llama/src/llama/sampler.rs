@@ -1,4 +1,4 @@
-use llama_cpp_2::sampling::LlamaSampler;
+use llama_cpp_2::{context::LlamaContext, sampling::LlamaSampler, token::LlamaToken};
 
 use crate::llama::sampler::SamplerType::{Dist, Temp, TopK, TopP};
 
@@ -39,14 +39,16 @@ impl SamplerBuilder {
     }
 
     fn build_sampler(&self) -> Result<Sampler, String> {
-        Err("TODO".to_owned())
+        let llama_sampler = self.sequence.init_chain_sampler(&self.params)?;
+
+        Ok(Sampler::with_sampler(llama_sampler))
     }
 }
 
 struct SamplerSequence(Vec<SamplerType>);
 
 impl SamplerSequence {
-    fn init_chain_sampler(&self, params: &SamplerParams) -> Result<Sampler, String> {
+    fn init_chain_sampler(&self, params: &SamplerParams) -> Result<LlamaSampler, String> {
         let mut llama_samplers = Vec::<LlamaSampler>::new();
         for sample_type in self.0.iter() {
             match sample_type {
@@ -64,9 +66,10 @@ impl SamplerSequence {
                 // }
             }
         }
-        Ok(Sampler {
-            llama_sampler: init_chain_sampler(llama_samplers, params.llama_sampler_no_perf),
-        })
+        Ok(init_chain_sampler(
+            llama_samplers,
+            params.llama_sampler_no_perf,
+        ))
     }
 }
 
@@ -115,5 +118,9 @@ struct Sampler {
 impl Sampler {
     fn with_sampler(llama_sampler: LlamaSampler) -> Self {
         Self { llama_sampler }
+    }
+
+    fn sample(&mut self, llama_ctx: &LlamaContext, idx: i32) -> LlamaToken {
+        self.llama_sampler.sample(llama_ctx, idx)
     }
 }
