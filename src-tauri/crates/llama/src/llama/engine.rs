@@ -19,4 +19,7 @@ impl LlamaEngine {
     }
 
 
+    fn init_session<'engine>() -> Result<LlamaSession<'engine>, String> {
+        Err("TODO".to_owned())
+    }
 }
