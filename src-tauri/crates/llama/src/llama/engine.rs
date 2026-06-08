@@ -5,6 +5,7 @@ use llama_cpp_2::{
     llama_backend::LlamaBackend,
     llama_batch::LlamaBatch,
     model::{AddBos, LlamaChatMessage, LlamaChatTemplate, LlamaModel, params::LlamaModelParams},
+    token::LlamaToken,
 };
 
 use crate::llama::config::LlamaConfig;
@@ -14,7 +15,9 @@ struct LlamaEngine {
     model: LlamaModel,
 }
 
-struct LlamaSession<'model> {
+struct SessionMeta {}
+
+struct LlamaContext4<'model> {
     model: &'model LlamaModel,
     context: LlamaContext<'model>,
     batch: LlamaBatch<'static>,
@@ -42,7 +45,7 @@ impl LlamaEngine {
         Ok(Self { backend, model })
     }
 
-    fn init_session<'model>(&'model self) -> Result<LlamaSession<'model>, String> {
+    fn init_session<'model>(&'model self) -> Result<LlamaContext4<'model>, String> {
         let template = self
             .model
             .chat_template(None)
@@ -65,7 +68,7 @@ impl LlamaEngine {
 
         let batch = LlamaBatch::new(batch_size as usize, 1);
 
-        Ok(LlamaSession {
+        Ok(LlamaContext4 {
             model: &self.model,
             context,
             batch,
@@ -75,29 +78,73 @@ impl LlamaEngine {
 }
 
 fn build_chat_message(role: &str, content: &str) -> Result<LlamaChatMessage, String> {
-    Ok(LlamaChatMessage::new(
-        role.to_owned(),
-        content.to_owned(),
-    ).map_err(|e| format!("Llama Chat Message Error: {e}"))?)
+    Ok(LlamaChatMessage::new(role.to_owned(), content.to_owned())
+        .map_err(|e| format!("Llama Chat Message Error: {e}"))?)
 }
 
-impl<'model> LlamaSession<'model> {
-    
-    fn chat(&self) -> Result<String, String> {
+// while server running:
+//     drain queued HTTP tasks
+//     assign tasks to slots
+//     update_slots()
+//         build one shared batch from active slots
+//         llama_decode(ctx, batch)
+//         sample next token per slot
+//         stream/finalize responses
+//     wait for more tasks
 
+/**
+ * TODO:
+ *  1. update_batch
+ *  2.
+ */
+impl<'model> LlamaContext4<'model> {
+    fn chat(&self) -> Result<String, String> {
         let messages = vec![
             build_chat_message("system", "You are a helpful assistant.")?,
             build_chat_message("user", "What is python.")?,
         ];
 
-        let prompt = self.model.apply_chat_template(&self.template, &messages, true)
+        let prompt = self
+            .model
+            .apply_chat_template(&self.template, &messages, true)
             .map_err(|e| format!("Llama Template Error: {e}"))?;
 
         println!("Prompt: \n{}", prompt);
 
-        let tokens = self.model.str_to_token(&prompt, AddBos::Always)
+        let tokens = self
+            .model
+            .str_to_token(&prompt, AddBos::Always)
             .map_err(|e| format!("Llama Token Error: {e}"))?;
 
+        // self.context.clear_kv_cache_seq(src, p0, p1)
         Ok(prompt)
     }
+
+    fn add_token(
+        &mut self,
+        token: LlamaToken,
+        pos: i32,
+        seq_ids: &[i32],
+        is_logits: bool,
+    ) -> Result<(), String> {
+        self.batch
+            .add(token, pos, seq_ids, is_logits)
+            .map_err(|e| format!("Llama Batch Error: {e}"))?;
+
+        Ok(())
+    }
+
+    fn clean_token(&mut self) {
+        self.batch.clear();
+    }
+
+    fn decode(&mut self) -> Result<(), String> {
+        self.context
+            .decode(&mut self.batch)
+            .map_err(|e| format!("Llama Decode Error: {e}"))?;
+
+        Ok(())
+    }
 }
+
+struct LlamaBatch4 {}
