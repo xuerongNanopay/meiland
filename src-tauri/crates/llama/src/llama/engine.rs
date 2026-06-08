@@ -1,7 +1,7 @@
-use std::{marker::PhantomPinned, path::Path};
+use std::{marker::PhantomPinned, num::NonZeroU32, path::Path};
 
 use llama_cpp_2::{
-    context::LlamaContext,
+    context::{LlamaContext, params::LlamaContextParams},
     llama_backend::LlamaBackend,
     llama_batch::LlamaBatch,
     model::{LlamaModel, params::LlamaModelParams},
@@ -41,11 +41,35 @@ impl LlamaEngine {
         Ok(Self { backend, model })
     }
 
-    fn init_session<'engine>() -> Result<LlamaSession<'engine>, String> {
-        Err("TODO".to_owned())
+    fn init_session<'model>(&'model self) -> Result<LlamaSession<'model>, String> {
+        let template = self
+            .model
+            .chat_template(None)
+            .map_err(|err| format!("Llama Chat Template Error: {err}"))?;
+
+        //TODO: refactor the context config.
+        // Context window cannot exceed what the model can reasnably support.
+        let context_window = 4096u32;
+        // Higher value will have fast prompt phase, but more memory.
+        let batch_size: u32 = 4096u32; // use 512 in production.(for puppost of demo to avoid extra code)
+
+        let ctx_params = LlamaContextParams::default()
+            .with_n_ctx(NonZeroU32::new(context_window)) // set context window
+            .with_n_batch(batch_size);
+
+        let context = self
+            .model
+            .new_context(&self.backend, ctx_params)
+            .map_err(|e| format!("Llama Context Error: {e}"))?;
+
+        let batch = LlamaBatch::new(batch_size as usize, 1);
+
+        Ok(LlamaSession {
+            model: &self.model,
+            context,
+            batch,
+        })
     }
 }
 
-impl<'model> LlamaSession<'model> {
-
-}
+impl<'model> LlamaSession<'model> {}
