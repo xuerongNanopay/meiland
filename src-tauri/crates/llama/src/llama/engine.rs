@@ -4,7 +4,7 @@ use llama_cpp_2::{
     context::{LlamaContext, params::LlamaContextParams},
     llama_backend::LlamaBackend,
     llama_batch::LlamaBatch,
-    model::{LlamaModel, params::LlamaModelParams},
+    model::{AddBos, LlamaChatMessage, LlamaChatTemplate, LlamaModel, params::LlamaModelParams},
 };
 
 use crate::llama::config::LlamaConfig;
@@ -18,6 +18,7 @@ struct LlamaSession<'model> {
     model: &'model LlamaModel,
     context: LlamaContext<'model>,
     batch: LlamaBatch<'static>,
+    template: LlamaChatTemplate,
 }
 
 impl LlamaEngine {
@@ -68,8 +69,35 @@ impl LlamaEngine {
             model: &self.model,
             context,
             batch,
+            template,
         })
     }
 }
 
-impl<'model> LlamaSession<'model> {}
+fn build_chat_message(role: &str, content: &str) -> Result<LlamaChatMessage, String> {
+    Ok(LlamaChatMessage::new(
+        role.to_owned(),
+        content.to_owned(),
+    ).map_err(|e| format!("Llama Chat Message Error: {e}"))?)
+}
+
+impl<'model> LlamaSession<'model> {
+    
+    fn chat(&self) -> Result<String, String> {
+
+        let messages = vec![
+            build_chat_message("system", "You are a helpful assistant.")?,
+            build_chat_message("user", "What is python.")?,
+        ];
+
+        let prompt = self.model.apply_chat_template(&self.template, &messages, true)
+            .map_err(|e| format!("Llama Template Error: {e}"))?;
+
+        println!("Prompt: \n{}", prompt);
+
+        let tokens = self.model.str_to_token(&prompt, AddBos::Always)
+            .map_err(|e| format!("Llama Token Error: {e}"))?;
+
+        Ok(prompt)
+    }
+}
