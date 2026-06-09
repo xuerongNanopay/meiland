@@ -12,4 +12,12 @@ fn main() {
     let llama_config = LlamaConfig4::default();
 
     let llama_engine = LlamaEngine4::from_file(model_path, llama_config).unwrap();
+
+    let llama_ctx = llama_engine.init_context4().unwrap();
+
+
+    let llama_batch = llama_ctx.gen_batch();
+
+    
+
 }

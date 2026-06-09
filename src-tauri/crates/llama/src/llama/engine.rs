@@ -19,7 +19,7 @@ pub struct LlamaEngine4 {
 
 struct SessionMeta {}
 
-struct LlamaContext4<'model> {
+pub struct LlamaContext4<'model> {
     model: &'model LlamaModel,
     context: LlamaContext<'model>,
     batch: LlamaBatch<'static>,
@@ -49,7 +49,7 @@ impl LlamaEngine4 {
         Ok(Self { backend, model })
     }
 
-    fn init_context4<'model>(&'model self) -> Result<LlamaContext4<'model>, String> {
+    pub fn init_context4<'model>(&'model self) -> Result<LlamaContext4<'model>, String> {
         let template = self
             .model
             .chat_template(None)
@@ -86,7 +86,7 @@ impl LlamaEngine4 {
 }
 
 impl<'model> LlamaContext4<'model> {
-    fn decode_batch(&mut self, batch: &mut LlamaBatch4) -> Result<(), String> {
+    pub fn decode_batch(&mut self, batch: &mut LlamaBatch4) -> Result<(), String> {
         self.context
             .decode(&mut batch.inner)
             .map_err(|e| format!("Llama Decode Error: {e}"))?;
@@ -94,11 +94,11 @@ impl<'model> LlamaContext4<'model> {
         Ok(())
     }
 
-    fn sample(&mut self, batch_logit_idx: i32) -> LlamaToken {
+    pub fn sample(&mut self, batch_logit_idx: i32) -> LlamaToken {
         self.sampler.sample(&self.context, batch_logit_idx)
     }
 
-    fn token_to_string(
+    pub fn token_to_string(
         &mut self,
         llama_token: LlamaToken,
         special: bool,
@@ -109,21 +109,21 @@ impl<'model> LlamaContext4<'model> {
             .map_err(|e| format!("Llama Token2String Error: {e}"))?)
     }
 
-    fn apply_template(&self, messages: &[LlamaChatMessage]) -> Result<String, String> {
+    pub fn apply_template(&self, messages: &[LlamaChatMessage]) -> Result<String, String> {
         Ok(self
             .model
             .apply_chat_template(&self.template, &messages, true)
             .map_err(|e| format!("Llama Template Error: {e}"))?)
     }
 
-    fn str_to_token(&self, prompt: &str) -> Result<Vec<LlamaToken>, String> {
+    pub fn str_to_token(&self, prompt: &str) -> Result<Vec<LlamaToken>, String> {
         Ok(self
             .model
             .str_to_token(prompt, AddBos::Always)
             .map_err(|e| format!("Llama Token Error: {e}"))?)
     }
 
-    fn clear_seq_kv(
+    pub fn clear_seq_kv(
         &mut self,
         seq_id: u32,
         start: Option<u32>,
@@ -135,11 +135,11 @@ impl<'model> LlamaContext4<'model> {
         Ok(())
     }
 
-    fn clear_kv(&mut self) {
+    pub fn clear_kv(&mut self) {
         self.context.clear_kv_cache();
     }
 
-    fn gen_batch(&self) -> LlamaBatch4 {
+    pub fn gen_batch(&self) -> LlamaBatch4 {
         LlamaBatch4::new(4096, 16)
     }
 }
@@ -149,7 +149,7 @@ fn build_chat_message(role: &str, content: &str) -> Result<LlamaChatMessage, Str
         .map_err(|e| format!("Llama Chat Message Error: {e}"))?)
 }
 
-struct LlamaBatch4 {
+pub struct LlamaBatch4 {
     capacity: i32,
     inner: LlamaBatch<'static>,
 }
@@ -162,15 +162,15 @@ impl LlamaBatch4 {
         }
     }
 
-    fn size(&self) -> i32 {
+    pub fn size(&self) -> i32 {
         self.inner.n_tokens()
     }
 
-    fn capacity(&self) -> i32 {
+    pub fn capacity(&self) -> i32 {
         self.capacity
     }
 
-    fn add_token(
+    pub fn add_token(
         &mut self,
         token: LlamaToken,
         glb_seq_pos: i32,
@@ -186,7 +186,7 @@ impl LlamaBatch4 {
         Ok(idx)
     }
 
-    fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.inner.clear();
     }
 }
