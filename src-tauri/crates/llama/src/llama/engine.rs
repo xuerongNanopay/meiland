@@ -85,47 +85,7 @@ impl LlamaEngine4 {
     }
 }
 
-// while server running:
-//     drain queued HTTP tasks
-//     assign tasks to slots
-//     update_slots()
-//         build one shared batch from active slots
-//         llama_decode(ctx, batch)
-//         sample next token per slot
-//         stream/finalize responses
-//     wait for more tasks
-
-/**
- * TODO:
- *  1. update_batch
- *  2.
- */
 impl<'model> LlamaContext4<'model> {
-    // fn chat(&self) -> Result<String, String> {
-    //     let messages = vec![
-    //         build_chat_message("system", "You are a helpful assistant.")?,
-    //         build_chat_message("user", "What is python.")?,
-    //     ];
-
-    //     let prompt = self
-    //         .model
-    //         .apply_chat_template(&self.template, &messages, true)
-    //         .map_err(|e| format!("Llama Template Error: {e}"))?;
-
-    //     println!("Prompt: \n{}", prompt);
-
-    //     let tokens = self
-    //         .model
-    //         .str_to_token(&prompt, AddBos::Always)
-    //         .map_err(|e| format!("Llama Token Error: {e}"))?;
-
-    //     // self.context.clear_kv_cache_seq(src, p0, p1)
-    //     Ok(prompt)
-    // }
-
-    // fn clean_token(&mut self) {
-    //     self.batch.clear();
-    // }
 
     fn decode_batch(&mut self, batch: &mut LlamaBatch4) -> Result<(), String> {
         self.context
