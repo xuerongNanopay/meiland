@@ -10,9 +10,9 @@ use llama_cpp_2::{
     token::LlamaToken,
 };
 
-use crate::llama::config::LlamaConfig;
+use crate::llama::config::LlamaConfig4;
 
-struct LlamaEngine4 {
+pub struct LlamaEngine4 {
     backend: LlamaBackend,
     model: LlamaModel,
 }
@@ -29,9 +29,9 @@ struct LlamaContext4<'model> {
 }
 
 impl LlamaEngine4 {
-    fn from_file(model_path: &str, config: LlamaConfig) -> Result<Self, String> {
-        if Path::new(model_path).is_file() {
-            return Err("invalid model path".to_owned());
+    pub fn from_file(model_path: &str, config: LlamaConfig4) -> Result<Self, String> {
+        if !Path::new(model_path).is_file() {
+            return Err(format!("invalid model path: {model_path}"));
         }
 
         let mut backend =
@@ -86,7 +86,6 @@ impl LlamaEngine4 {
 }
 
 impl<'model> LlamaContext4<'model> {
-
     fn decode_batch(&mut self, batch: &mut LlamaBatch4) -> Result<(), String> {
         self.context
             .decode(&mut batch.inner)
@@ -124,8 +123,14 @@ impl<'model> LlamaContext4<'model> {
             .map_err(|e| format!("Llama Token Error: {e}"))?)
     }
 
-    fn clear_seq_kv(&mut self, seq_id: u32, start: Option<u32>, end: Option<u32>) -> Result<(), String> {
-        self.context.clear_kv_cache_seq(Some(seq_id), start, end)
+    fn clear_seq_kv(
+        &mut self,
+        seq_id: u32,
+        start: Option<u32>,
+        end: Option<u32>,
+    ) -> Result<(), String> {
+        self.context
+            .clear_kv_cache_seq(Some(seq_id), start, end)
             .map_err(|e| format!("Llama KV Clear Error: {e}"))?;
         Ok(())
     }
@@ -225,7 +230,5 @@ mod tests {
 
         batch.clear();
         assert_eq!(batch.size(), 0);
-
     }
-
 }

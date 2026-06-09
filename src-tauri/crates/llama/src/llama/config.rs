@@ -1,8 +1,8 @@
-pub(crate) struct LlamaConfig {
-    pub(crate) enable_backend_log: bool,
+pub struct LlamaConfig4 {
+    pub enable_backend_log: bool,
 }
 
-impl Default for LlamaConfig {
+impl Default for LlamaConfig4 {
     fn default() -> Self {
         Self {
             enable_backend_log: true,

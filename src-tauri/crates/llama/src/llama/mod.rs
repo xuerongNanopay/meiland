@@ -1,5 +1,5 @@
-mod config;
-mod engine;
+pub mod config;
+pub mod engine;
 mod inferencer;
 mod metric;
 mod sampler;
