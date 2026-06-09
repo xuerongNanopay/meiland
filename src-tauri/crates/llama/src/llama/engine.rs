@@ -208,20 +208,64 @@ impl LlamaBatch4 {
     fn add_token(
         &mut self,
         token: LlamaToken,
-        seq_pos: i32,
+        glb_seq_pos: i32,
         seq_ids: &[i32],
         require_logits: bool,
     ) -> Result<i32, String> {
         let idx = self.inner.n_tokens();
 
         self.inner
-            .add(token, seq_pos, seq_ids, require_logits)
+            .add(token, glb_seq_pos, seq_ids, require_logits)
             .map_err(|e| format!("Llama Batch Error: {e}"))?;
 
         Ok(idx)
     }
 
     fn clear(&mut self) {
-        self.clear();
+        self.inner.clear();
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LlamaBatch4;
+    use llama_cpp_2::token::LlamaToken;
+
+    #[test]
+    fn text_llama_batch4_size() {
+        let seq_0_token_0 = LlamaToken::new(8964);
+        let seq_0_token_1 = LlamaToken::new(8964);
+        let seq_1_token_0 = LlamaToken::new(8964);
+        let seq_1_token_1 = LlamaToken::new(8964);
+        let seq_1_token_2 = LlamaToken::new(8964);
+
+        let mut batch = LlamaBatch4::new(4, 1);
+        assert_eq!(batch.size(), 0);
+
+        let idx = batch.add_token(seq_0_token_0, 0, &[0], false).unwrap();
+        assert_eq!(batch.size(), 1);
+        assert_eq!(idx, 0);
+
+        let idx = batch.add_token(seq_0_token_1, 1, &[0], false).unwrap();
+        assert_eq!(batch.size(), 2);
+        assert_eq!(idx, 1);
+
+        batch.clear();
+        assert_eq!(batch.size(), 0);
+
+        let idx = batch.add_token(seq_1_token_0, 0, &[1], false).unwrap();
+        assert_eq!(batch.size(), 1);
+        assert_eq!(idx, 0);
+
+        let idx = batch.add_token(seq_1_token_1, 1, &[1], false).unwrap();
+        let idx = batch.add_token(seq_1_token_2, 2, &[1], false).unwrap();
+
+        assert_eq!(batch.size(), 3);
+        assert_eq!(idx, 2);
+
+        batch.clear();
+        assert_eq!(batch.size(), 0);
+
+    }
+
 }
