@@ -17,12 +17,9 @@ pub struct LlamaEngine4 {
     model: LlamaModel,
 }
 
-struct SessionMeta {}
-
 pub struct LlamaContext4<'model> {
     model: &'model LlamaModel,
     context: LlamaContext<'model>,
-    batch: LlamaBatch<'static>,
     template: LlamaChatTemplate,
     sampler: LlamaSampler,
     decoder: Decoder,
@@ -70,14 +67,17 @@ impl LlamaEngine4 {
             .new_context(&self.backend, ctx_params)
             .map_err(|e| format!("Llama Context Error: {e}"))?;
 
-        let batch = LlamaBatch::new(batch_size as usize, 1);
+        let temperature = 0.0;
+        let seed = 42;
 
-        let mut sampler = LlamaSampler::chain_simple(vec![LlamaSampler::temp(0.7)]);
+        let sampler = LlamaSampler::chain_simple(vec![
+            LlamaSampler::temp(temperature),
+            LlamaSampler::dist(seed),
+        ]);
 
         Ok(LlamaContext4 {
             model: &self.model,
             context,
-            batch,
             template,
             sampler,
             decoder: encoding_rs::UTF_8.new_decoder(),
@@ -98,6 +98,10 @@ impl<'model> LlamaContext4<'model> {
         self.sampler.sample(&self.context, batch_logit_idx)
     }
 
+    pub fn is_eog_token(&self, token: LlamaToken) -> bool {
+        self.model.is_eog_token(token)
+    }
+
     pub fn token_to_string(
         &mut self,
         llama_token: LlamaToken,
@@ -112,8 +116,8 @@ impl<'model> LlamaContext4<'model> {
     pub fn apply_template(&self, messages: &[LlamaChatMessage]) -> Result<String, String> {
         Ok(self
             .model
-            .apply_chat_template(&self.template, &messages, true)
-            .map_err(|e| format!("Llama Template Error: {e}"))?)
+            .apply_chat_template_with_tools_oaicompat(&self.template, &messages, None, None, true)
+            .map_err(|e| format!("Llama Template Error: {:#?}", e))?.prompt)
     }
 
     pub fn str_to_token(&self, prompt: &str) -> Result<Vec<LlamaToken>, String> {
@@ -144,11 +148,6 @@ impl<'model> LlamaContext4<'model> {
     }
 }
 
-fn build_chat_message(role: &str, content: &str) -> Result<LlamaChatMessage, String> {
-    Ok(LlamaChatMessage::new(role.to_owned(), content.to_owned())
-        .map_err(|e| format!("Llama Chat Message Error: {e}"))?)
-}
-
 pub struct LlamaBatch4 {
     capacity: i32,
     inner: LlamaBatch<'static>,
@@ -172,18 +171,43 @@ impl LlamaBatch4 {
 
     pub fn add_token(
         &mut self,
-        token: LlamaToken,
-        glb_seq_pos: i32,
-        seq_ids: &[i32],
+        token: &LlamaToken,
+        seq_pos: i32,
+        seq_id: i32,
         require_logits: bool,
     ) -> Result<i32, String> {
-        let idx = self.inner.n_tokens();
 
         self.inner
-            .add(token, glb_seq_pos, seq_ids, require_logits)
+            .add(token.clone(), seq_pos, &[seq_id], require_logits)
             .map_err(|e| format!("Llama Batch Error: {e}"))?;
 
-        Ok(idx)
+        Ok(self.inner.n_tokens() - 1)
+    }
+
+    pub fn add_tokens(
+        &mut self,
+        tokens: &[LlamaToken],
+        seq_offset: i32,
+        seq_id: i32,
+        end_with_logits: bool,
+    )  -> Result<i32, String> {
+        let batch_offset = self.inner.n_tokens();
+
+        let end_idx = tokens.len() - 1;
+
+        let mut ret: Option<i32> = None;
+
+        for (idx, token) in tokens.iter().enumerate() {
+            let require_logits = if end_with_logits == true && idx == end_idx {
+                true
+            } else {
+                false
+            };
+
+            ret = Some(self.add_token(token, seq_offset + idx as i32, seq_id, require_logits)?);
+        }
+
+        Ok(ret.unwrap())
     }
 
     pub fn clear(&mut self) {
@@ -207,23 +231,23 @@ mod tests {
         let mut batch = LlamaBatch4::new(4, 1);
         assert_eq!(batch.size(), 0);
 
-        let idx = batch.add_token(seq_0_token_0, 0, &[0], false).unwrap();
+        let idx = batch.add_token(&seq_0_token_0, 0, 0, false).unwrap();
         assert_eq!(batch.size(), 1);
         assert_eq!(idx, 0);
 
-        let idx = batch.add_token(seq_0_token_1, 1, &[0], false).unwrap();
+        let idx = batch.add_token(&seq_0_token_1, 1, 0, false).unwrap();
         assert_eq!(batch.size(), 2);
         assert_eq!(idx, 1);
 
         batch.clear();
         assert_eq!(batch.size(), 0);
 
-        let idx = batch.add_token(seq_1_token_0, 0, &[1], false).unwrap();
+        let idx = batch.add_token(&seq_1_token_0, 0, 1, false).unwrap();
         assert_eq!(batch.size(), 1);
         assert_eq!(idx, 0);
 
-        let idx = batch.add_token(seq_1_token_1, 1, &[1], false).unwrap();
-        let idx = batch.add_token(seq_1_token_2, 2, &[1], false).unwrap();
+        let idx = batch.add_token(&seq_1_token_1, 1, 1, false).unwrap();
+        let idx = batch.add_token(&seq_1_token_2, 2, 1, false).unwrap();
 
         assert_eq!(batch.size(), 3);
         assert_eq!(idx, 2);
