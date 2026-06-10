@@ -1,5 +1,6 @@
 use std::{env, path::PathBuf};
 
+use actix_web::rt::time::Instant;
 use llama::llama::{config::LlamaConfig4, engine::LlamaEngine4};
 use llama_cpp_2::model::LlamaChatMessage;
 
@@ -33,6 +34,7 @@ fn main() {
     println!("Prompt: \n{formatted_prompt}");
 
     // Prompting phase.
+    let start = Instant::now();
     let mut tokens = llama_ctx.str_to_token(&formatted_prompt).unwrap();
 
     let end_idx = tokens.len() - 1;
@@ -47,7 +49,13 @@ fn main() {
 
     llama_ctx.decode_batch(&mut llama_batch).unwrap();
 
+    let prompting_elapsed = start.elapsed();
+
+
+
     // Generating phase.
+    let start = Instant::now();
+
     let mut cur = llama_batch.size()-1;
     let max_token = 1024;
     let mut generated_text = String::new();
@@ -71,8 +79,10 @@ fn main() {
         llama_ctx.decode_batch(&mut llama_batch).unwrap();
 
     }
-
-    println!("Result: {generated_text}")
+    let generating_elapsed = start.elapsed();
+    println!("Result: {generated_text}");
+    println!("Prompting Elapsed: {:.3} ms", prompting_elapsed.as_secs_f64() * 1000.0);
+    println!("Generating Elapsed: {:.3} ms", generating_elapsed.as_secs_f64() * 1000.0);
 
 }
 
