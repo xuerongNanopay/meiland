@@ -1,7 +1,7 @@
 use std::{env, path::PathBuf};
 
 use actix_web::rt::time::Instant;
-use llama::llama::{config::LlamaConfig4, engine::LlamaEngine4};
+use llama::llama::inference::{config::LlamaConfig4, engine::LlamaEngine4};
 use llama_cpp_2::model::LlamaChatMessage;
 
 fn main() {

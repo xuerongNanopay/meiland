@@ -1,6 +1,6 @@
 use llama_cpp_2::{context::LlamaContext, sampling::LlamaSampler, token::LlamaToken};
 
-use crate::llama::sampler::SamplerType::{Dist, Temp, TopK, TopP};
+use self::SamplerType::{Dist, Temp, TopK, TopP};
 
 #[derive(Debug, Clone, Copy)]
 struct SamplerParams {

@@ -10,7 +10,7 @@ use llama_cpp_2::{
     token::LlamaToken,
 };
 
-use crate::llama::config::LlamaConfig4;
+use super::config::LlamaConfig4;
 
 pub struct LlamaEngine4 {
     backend: LlamaBackend,
