@@ -19,13 +19,15 @@ fn main() {
 
     let mut llama_ctx = llama_engine.init_context4().unwrap();
 
-
     let mut llama_batch = llama_ctx.gen_batch();
-
 
     let messages = vec![
         build_chat_message("system", "You are the professor NBA stats").unwrap(),
-        build_chat_message("user", "list champion of nba final conference in most recent five years").unwrap(),
+        build_chat_message(
+            "user",
+            "list champion of nba final conference in most recent five years",
+        )
+        .unwrap(),
     ];
 
     // Convert messages into ChatMl.
@@ -39,24 +41,20 @@ fn main() {
 
     let end_idx = tokens.len() - 1;
     for (idx, token) in tokens.as_slice().iter().enumerate() {
-        let require_logits = if idx == end_idx {
-            true
-        } else {
-            false
-        };
-        llama_batch.add_token(token, idx as i32, 0, require_logits).unwrap();
+        let require_logits = if idx == end_idx { true } else { false };
+        llama_batch
+            .add_token(token, idx as i32, 0, require_logits)
+            .unwrap();
     }
 
     llama_ctx.decode_batch(&mut llama_batch).unwrap();
 
     let prompting_elapsed = start.elapsed();
 
-
-
     // Generating phase.
     let start = Instant::now();
 
-    let mut cur = llama_batch.size()-1;
+    let mut cur = llama_batch.size() - 1;
     let max_token = 1024;
     let mut generated_text = String::new();
 
@@ -72,18 +70,24 @@ fn main() {
         tokens.push(next_token);
 
         llama_batch.clear();
-        llama_batch.add_token(&next_token, (tokens.len() - 1) as i32, 0, true).unwrap();
+        llama_batch
+            .add_token(&next_token, (tokens.len() - 1) as i32, 0, true)
+            .unwrap();
 
         cur += 1;
 
         llama_ctx.decode_batch(&mut llama_batch).unwrap();
-
     }
     let generating_elapsed = start.elapsed();
     println!("Result: {generated_text}");
-    println!("Prompting Elapsed: {:.3} ms", prompting_elapsed.as_secs_f64() * 1000.0);
-    println!("Generating Elapsed: {:.3} ms", generating_elapsed.as_secs_f64() * 1000.0);
-
+    println!(
+        "Prompting Elapsed: {:.3} ms",
+        prompting_elapsed.as_secs_f64() * 1000.0
+    );
+    println!(
+        "Generating Elapsed: {:.3} ms",
+        generating_elapsed.as_secs_f64() * 1000.0
+    );
 }
 
 fn build_chat_message(role: &str, content: &str) -> Result<LlamaChatMessage, String> {

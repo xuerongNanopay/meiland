@@ -1,0 +1,4 @@
+enum Embedder {
+    Text,
+    Mtmd,
+}

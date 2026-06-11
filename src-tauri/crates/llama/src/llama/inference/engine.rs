@@ -117,7 +117,8 @@ impl<'model> LlamaContext4<'model> {
         Ok(self
             .model
             .apply_chat_template_with_tools_oaicompat(&self.template, &messages, None, None, true)
-            .map_err(|e| format!("Llama Template Error: {:#?}", e))?.prompt)
+            .map_err(|e| format!("Llama Template Error: {:#?}", e))?
+            .prompt)
     }
 
     pub fn str_to_token(&self, prompt: &str) -> Result<Vec<LlamaToken>, String> {
@@ -176,7 +177,6 @@ impl LlamaBatch4 {
         seq_id: i32,
         require_logits: bool,
     ) -> Result<i32, String> {
-
         self.inner
             .add(token.clone(), seq_pos, &[seq_id], require_logits)
             .map_err(|e| format!("Llama Batch Error: {e}"))?;
@@ -190,7 +190,7 @@ impl LlamaBatch4 {
         seq_offset: i32,
         seq_id: i32,
         end_with_logits: bool,
-    )  -> Result<i32, String> {
+    ) -> Result<i32, String> {
         let batch_offset = self.inner.n_tokens();
 
         let end_idx = tokens.len() - 1;
