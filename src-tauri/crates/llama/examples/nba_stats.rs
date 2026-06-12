@@ -1,7 +1,10 @@
 use std::{env, path::PathBuf};
 
 use actix_web::rt::time::Instant;
-use llama::llama::inference::{config::LlamaConfig4, engine::LlamaEngine4};
+use llama::llama::inference::{
+    config::LlamaConfig4,
+    engine::{LlamaContextParams4, LlamaEngine4},
+};
 use llama_cpp_2::model::LlamaChatMessage;
 
 fn main() {
@@ -17,7 +20,9 @@ fn main() {
 
     let llama_engine = LlamaEngine4::from_file(model_path, llama_config).unwrap();
 
-    let mut llama_ctx = llama_engine.init_context4().unwrap();
+    let mut llama_ctx = llama_engine
+        .init_context4(LlamaContextParams4::default(), None)
+        .unwrap();
 
     let mut llama_batch = llama_ctx.gen_batch();
 

@@ -5,11 +5,11 @@ mod inferencer;
 mod metric;
 mod sampler;
 
-struct LlamaCommonParams {
+pub struct LlamaCommonParams4 {
     context_window: i32,
 }
 
-impl Default for LlamaCommonParams {
+impl Default for LlamaCommonParams4 {
     fn default() -> Self {
         Self {
             context_window: 0, // 0 == context the model was trained with

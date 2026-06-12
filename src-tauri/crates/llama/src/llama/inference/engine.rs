@@ -6,10 +6,12 @@ use llama_cpp_2::{
     llama_backend::LlamaBackend,
     llama_batch::LlamaBatch,
     model::{AddBos, LlamaChatMessage, LlamaChatTemplate, LlamaModel, params::LlamaModelParams},
-    mtmd::MtmdContext,
+    mtmd::{MtmdContext, MtmdContextParams},
     sampling::LlamaSampler,
     token::LlamaToken,
 };
+
+use crate::llama::inference::LlamaCommonParams4;
 
 use super::config::LlamaConfig4;
 
@@ -18,7 +20,7 @@ pub struct LlamaEngine4 {
     model: LlamaModel,
 }
 
-struct LlamaContextParams4 {
+pub struct LlamaContextParams4 {
     context_size: i32,
     batch_size: i32,
 }
@@ -61,7 +63,11 @@ impl LlamaEngine4 {
         Ok(Self { backend, model })
     }
 
-    pub fn init_context4<'engine>(&'engine self) -> Result<LlamaContext4<'engine>, String> {
+    pub fn init_context4<'engine>(
+        &'engine self,
+        params: LlamaContextParams4,
+        mmproj_path: Option<&str>,
+    ) -> Result<LlamaContext4<'engine>, String> {
         let template = self
             .model
             .chat_template(None)
@@ -90,12 +96,22 @@ impl LlamaEngine4 {
             LlamaSampler::dist(seed),
         ]);
 
+        let mtmd_context = if let Some(path) = mmproj_path {
+            let mtmd_params = MtmdContextParams::default();
+            Some(
+                MtmdContext::init_from_file(&path, &self.model, &mtmd_params)
+                    .map_err(|e| format!("Llama Mtmd Initial Error: {:#?}", e))?,
+            )
+        } else {
+            None
+        };
+
         Ok(LlamaContext4 {
             engine: self,
             context,
             template,
             sampler,
-            mtmd_context: None,
+            mtmd_context,
         })
     }
 }
