@@ -1,4 +1,4 @@
-use std::{marker::PhantomPinned, num::NonZeroU32, path::Path};
+use std::{num::NonZeroU32, path::Path};
 
 use encoding_rs::Decoder;
 use llama_cpp_2::{
@@ -22,7 +22,6 @@ pub struct LlamaContext4<'model> {
     context: LlamaContext<'model>,
     template: LlamaChatTemplate,
     sampler: LlamaSampler,
-    decoder: Decoder,
 }
 
 impl LlamaEngine4 {
@@ -80,7 +79,6 @@ impl LlamaEngine4 {
             context,
             template,
             sampler,
-            decoder: encoding_rs::UTF_8.new_decoder(),
         })
     }
 }
@@ -109,7 +107,12 @@ impl<'model> LlamaContext4<'model> {
     ) -> Result<String, String> {
         Ok(self
             .model
-            .token_to_piece(llama_token, &mut self.decoder, special, None)
+            .token_to_piece(
+                llama_token,
+                &mut encoding_rs::UTF_8.new_decoder(),
+                special,
+                None,
+            )
             .map_err(|e| format!("Llama Token2String Error: {e}"))?)
     }
 

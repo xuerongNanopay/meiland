@@ -1,2 +1,2 @@
-pub mod inference;
 mod backend;
+pub mod inference;
