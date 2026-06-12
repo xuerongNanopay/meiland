@@ -6,6 +6,7 @@ use llama_cpp_2::{
     llama_backend::LlamaBackend,
     llama_batch::LlamaBatch,
     model::{AddBos, LlamaChatMessage, LlamaChatTemplate, LlamaModel, params::LlamaModelParams},
+    mtmd::MtmdContext,
     sampling::LlamaSampler,
     token::LlamaToken,
 };
@@ -17,11 +18,26 @@ pub struct LlamaEngine4 {
     model: LlamaModel,
 }
 
+struct LlamaContextParams4 {
+    context_size: i32,
+    batch_size: i32,
+}
+
+impl Default for LlamaContextParams4 {
+    fn default() -> Self {
+        Self {
+            context_size: 0, // 0: use model context size.
+            batch_size: 2048,
+        }
+    }
+}
+
 pub struct LlamaContext4<'model> {
     model: &'model LlamaModel,
     context: LlamaContext<'model>,
     template: LlamaChatTemplate,
     sampler: LlamaSampler,
+    mtmd_context: Option<MtmdContext>,
 }
 
 impl LlamaEngine4 {
@@ -79,6 +95,7 @@ impl LlamaEngine4 {
             context,
             template,
             sampler,
+            mtmd_context: None,
         })
     }
 }
