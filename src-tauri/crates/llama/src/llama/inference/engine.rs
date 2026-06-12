@@ -32,9 +32,9 @@ impl Default for LlamaContextParams4 {
     }
 }
 
-pub struct LlamaContext4<'model> {
-    model: &'model LlamaModel,
-    context: LlamaContext<'model>,
+pub struct LlamaContext4<'engine> {
+    engine: &'engine LlamaEngine4,
+    context: LlamaContext<'engine>,
     template: LlamaChatTemplate,
     sampler: LlamaSampler,
     mtmd_context: Option<MtmdContext>,
@@ -61,7 +61,7 @@ impl LlamaEngine4 {
         Ok(Self { backend, model })
     }
 
-    pub fn init_context4<'model>(&'model self) -> Result<LlamaContext4<'model>, String> {
+    pub fn init_context4<'engine>(&'engine self) -> Result<LlamaContext4<'engine>, String> {
         let template = self
             .model
             .chat_template(None)
@@ -91,7 +91,7 @@ impl LlamaEngine4 {
         ]);
 
         Ok(LlamaContext4 {
-            model: &self.model,
+            engine: self,
             context,
             template,
             sampler,
@@ -100,7 +100,7 @@ impl LlamaEngine4 {
     }
 }
 
-impl<'model> LlamaContext4<'model> {
+impl<'engine> LlamaContext4<'engine> {
     pub fn decode_batch(&mut self, batch: &mut LlamaBatch4) -> Result<(), String> {
         self.context
             .decode(&mut batch.inner)
@@ -114,7 +114,7 @@ impl<'model> LlamaContext4<'model> {
     }
 
     pub fn is_eog_token(&self, token: LlamaToken) -> bool {
-        self.model.is_eog_token(token)
+        self.engine.model.is_eog_token(token)
     }
 
     pub fn token_to_string(
@@ -123,6 +123,7 @@ impl<'model> LlamaContext4<'model> {
         special: bool,
     ) -> Result<String, String> {
         Ok(self
+            .engine
             .model
             .token_to_piece(
                 llama_token,
@@ -135,6 +136,7 @@ impl<'model> LlamaContext4<'model> {
 
     pub fn apply_template(&self, messages: &[LlamaChatMessage]) -> Result<String, String> {
         Ok(self
+            .engine
             .model
             .apply_chat_template_with_tools_oaicompat(&self.template, &messages, None, None, true)
             .map_err(|e| format!("Llama Template Error: {:#?}", e))?
@@ -143,6 +145,7 @@ impl<'model> LlamaContext4<'model> {
 
     pub fn str_to_token(&self, prompt: &str) -> Result<Vec<LlamaToken>, String> {
         Ok(self
+            .engine
             .model
             .str_to_token(prompt, AddBos::Always)
             .map_err(|e| format!("Llama Token Error: {e}"))?)
