@@ -8,7 +8,7 @@ use llama_cpp_2::{
     model::{AddBos, LlamaChatMessage, LlamaChatTemplate, LlamaModel, params::LlamaModelParams},
     mtmd::{MtmdContext, MtmdContextParams},
     sampling::LlamaSampler,
-    token::LlamaToken,
+    token::{self, LlamaToken},
 };
 
 use crate::llama::inference::LlamaCommonParams4;
@@ -23,6 +23,7 @@ pub struct LlamaEngine4 {
 pub struct LlamaContextParams4 {
     context_size: i32,
     batch_size: i32,
+    num_sequence: i32,
 }
 
 impl Default for LlamaContextParams4 {
@@ -30,11 +31,13 @@ impl Default for LlamaContextParams4 {
         Self {
             context_size: 0, // 0: use model context size.
             batch_size: 2048,
+            num_sequence: 1,
         }
     }
 }
 
 pub struct LlamaContext4<'engine> {
+    params: LlamaContextParams4,
     engine: &'engine LlamaEngine4,
     context: LlamaContext<'engine>,
     template: LlamaChatTemplate,
@@ -107,6 +110,7 @@ impl LlamaEngine4 {
         };
 
         Ok(LlamaContext4 {
+            params,
             engine: self,
             context,
             template,
@@ -117,6 +121,39 @@ impl LlamaEngine4 {
 }
 
 impl<'engine> LlamaContext4<'engine> {
+    pub fn decode_text(
+        &mut self,
+        messages: &[LlamaChatMessage],
+        seq_id: i32,
+        seq_pos: i32,
+        last_logit: bool,
+    ) -> Result<i32, String> {
+        let prompt = self.apply_template(messages)?;
+
+        let tokens = self.str_to_token(&prompt)?;
+        let end_pos = seq_pos + tokens.len() as i32 - 1;
+
+        let mut batch = self.gen_batch();
+
+        let mut seq_pos = seq_pos;
+
+        for chunk in tokens.chunks(self.params.batch_size as usize) {
+            for token in chunk.iter() {
+                let require_logit = if last_logit && seq_pos == end_pos {
+                    true
+                } else {
+                    false
+                };
+                batch.add_token(token, seq_pos, seq_id, require_logit)?;
+                seq_pos += 1;
+            }
+
+            self.decode_batch(&mut batch)?;
+            batch.clear();
+        }
+        Ok(tokens.len() as i32)
+    }
+
     pub fn decode_batch(&mut self, batch: &mut LlamaBatch4) -> Result<(), String> {
         self.context
             .decode(&mut batch.inner)
@@ -184,7 +221,27 @@ impl<'engine> LlamaContext4<'engine> {
     }
 
     pub fn gen_batch(&self) -> LlamaBatch4 {
-        LlamaBatch4::new(4096, 16)
+        LlamaBatch4::new(self.params.batch_size, self.params.num_sequence)
+    }
+
+    pub fn support_mtmd(&self) -> bool {
+        self.mtmd_context.is_some()
+    }
+
+    pub fn support_vision(&self) -> bool {
+        if let Some(ctx) = self.mtmd_context.as_ref() {
+            ctx.support_vision()
+        } else {
+            false
+        }
+    }
+
+    pub fn support_audio(&self) -> bool {
+        if let Some(ctx) = self.mtmd_context.as_ref() {
+            ctx.support_audio()
+        } else {
+            false
+        }
     }
 }
 
