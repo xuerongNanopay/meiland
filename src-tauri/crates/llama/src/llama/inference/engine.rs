@@ -243,6 +243,10 @@ impl<'engine> LlamaContext4<'engine> {
             false
         }
     }
+
+    pub fn sequence_next_pos(&self, seq_id: i32) -> i32 {
+        self.context.kv_cache_seq_pos_max(seq_id)
+    }
 }
 
 pub struct LlamaBatch4 {
