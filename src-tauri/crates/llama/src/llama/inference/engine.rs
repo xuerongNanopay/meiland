@@ -6,7 +6,7 @@ use llama_cpp_2::{
     llama_backend::LlamaBackend,
     llama_batch::LlamaBatch,
     model::{AddBos, LlamaChatMessage, LlamaChatTemplate, LlamaModel, params::LlamaModelParams},
-    mtmd::{MtmdContext, MtmdContextParams},
+    mtmd::{MtmdBitmap, MtmdContext, MtmdContextParams},
     sampling::LlamaSampler,
     token::{self, LlamaToken},
 };
@@ -152,6 +152,10 @@ impl<'engine> LlamaContext4<'engine> {
             batch.clear();
         }
         Ok(tokens.len() as i32)
+    }
+
+    pub fn decode_mtmd(&mut self, messages: &[LlamaChatMessage], bitmaps: &[&MtmdBitmap], seq_id: i32, seq_pos:i32, last_logit:bool) {
+
     }
 
     pub fn decode_batch(&mut self, batch: &mut LlamaBatch4) -> Result<(), String> {
