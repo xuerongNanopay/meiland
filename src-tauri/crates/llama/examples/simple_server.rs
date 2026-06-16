@@ -1,18 +1,19 @@
 use actix_web::post;
 #[warn(dead_code)]
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use llama::utils::jinja::replace_python_style_get;
 use llama_cpp_2::model::AddBos;
 use llama_cpp_2::{
     context::params::LlamaContextParams,
     llama_backend::LlamaBackend,
     llama_batch::LlamaBatch,
     model::{LlamaChatTemplate, LlamaModel, params::LlamaModelParams},
-    openai::OpenAIChatTemplateParams,
     sampling::LlamaSampler,
 };
 use serde_json::{Value, json};
 use std::num::NonZeroU32;
-use std::{env, fmt::format, path::PathBuf};
+use std::{env, path::PathBuf};
+use minijinja::{Environment, context};
 
 const HOST_NAME: &str = "127.0.0.1";
 const PORT: u16 = 4444;
@@ -46,8 +47,6 @@ fn run_llama_complete(
         return Err(format!("messages must be an array"));
     }
 
-    let messages_json = messages.to_string();
-
     let temperature = request
         .get("temperature")
         .and_then(Value::as_f64)
@@ -56,32 +55,23 @@ fn run_llama_complete(
         return Err(format!("temperature must be between 0 and 1"));
     }
 
-    // 2. Initial template to convert input to tokens.
-    let params = OpenAIChatTemplateParams {
-        messages_json: messages_json.as_ref(),
-        tools_json: None,
-        tool_choice: None,
-        json_schema: None,
-        grammar: None,
-        reasoning_format: None,
-        chat_template_kwargs: None,
-        add_generation_prompt: true,
-        use_jinja: true,
-        parallel_tool_calls: false,
-        enable_thinking: true,
-        add_bos: false,
-        add_eos: false,
-        parse_tool_calls: false,
-    };
+    let jinja_tpl = model.chat_template(None).map_err(|e| format!("Template Error: {e}"))?;
+    let jinja_tpl = jinja_tpl.to_str().map_err(|e| format!("Template Error: {e}"))?.to_owned();
 
-    let tpl_result = model
-        .apply_chat_template_oaicompat(template, &params)
-        .map_err(|e| format!("Llama Template Error: {e}"))?;
+    let jinja_tpl= replace_python_style_get(&jinja_tpl);
 
-    println!("Template Result: \n{}", tpl_result.prompt);
+    let env = Environment::new();
+    let tmpl = env.template_from_str(&jinja_tpl).map_err(|e| format!("Template Error: {e}"))?;
+
+    let formatted_prompt = tmpl.render(context!{
+        messages => messages,
+        add_generation_prompt => true,
+    }).map_err(|e| format!("Template Error: {e}"))?;
+
+    println!("Template Result: \n{}", formatted_prompt);
 
     let tokens = model
-        .str_to_token(&tpl_result.prompt, AddBos::Always)
+        .str_to_token(&formatted_prompt, AddBos::Always)
         .map_err(|e| format!("Llama Token Error: {e}"))?;
 
     // 3. Setup context window and batch size.
@@ -176,19 +166,12 @@ fn run_llama_complete(
         finish_reason = "length";
     }
 
-    // println!("Result111: \n {}", generated_text);
-
-    let message_json = tpl_result
-        .parse_response_oaicompat(&generated_text, false)
-        .map_err(|e| format!("Llama CharParse Error: {e}"))?;
-
-    let message_value: Value =
-        serde_json::from_str(&message_json).map_err(|e| format!("Serde Error: {e}"))?;
+    println!("Result111: \n {}", generated_text);
 
     let response = json!({
         "choices": [{
             "index": 0,
-            "message": message_value,
+            "message": messages,
             "finish_reason": finish_reason
         }],
         "usage": {

@@ -59,17 +59,17 @@ fn main() {
 
     let template = model.chat_template(None).unwrap();
 
-    let template_result = model
-        .apply_chat_template_with_tools_oaicompat(&template, &[message], None, None, true)
+    let prompt = model
+        .apply_chat_template(&template, &[message], true)
         .unwrap();
 
-    println!("Template result: {}", template_result.prompt);
+    println!("Template result: {}", prompt);
 
     // Load image.
-    let image = MtmdBitmap::from_file(&mtmd_ctx, image_path.to_str().unwrap()).unwrap();
+    let image = MtmdBitmap::from_file(&mtmd_ctx, image_path.to_str().unwrap(), false).unwrap();
 
     let input = MtmdInputText {
-        text: template_result.prompt,
+        text: prompt,
         add_special: true,
         parse_special: true,
     };

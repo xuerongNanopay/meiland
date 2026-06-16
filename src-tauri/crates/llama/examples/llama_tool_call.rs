@@ -1,15 +1,16 @@
+use llama::utils::jinja::replace_python_style_get;
 use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::{AddBos, LlamaModel};
-use llama_cpp_2::openai::OpenAIChatTemplateParams;
 use llama_cpp_2::sampling::LlamaSampler;
 use serde_json::json;
 use std::env;
 use std::error::Error;
 use std::io::{self, Write};
 use std::num::NonZeroU32;
+use minijinja::{Environment, context};
 
 /// Usage: `cargo run -p llama --example llama_tool_call -- {GGUF_PATH}
 fn main() -> Result<(), Box<dyn Error>> {
@@ -28,7 +29,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let tools_json = json!([
         {
-            "type": "function",
             "function": {
                 "name": "get_weather",
                 "description": "Fetch current weather by city.",
@@ -41,42 +41,34 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
-    ])
-    .to_string();
-
-    let messages_json = json!([
+    ]);
+    
+    let messages = json!([
         {
             "role": "system",
-            "content": "You are a tool caller."
+            "content": "You are a weather asistant."
         },
         {
             "role": "user",
             "content": "Fetch the weather in Paris."
         }
-    ])
-    .to_string();
+    ]);
 
-    let formatted_prompt = model.apply_chat_template_oaicompat(
-        &template,
-        &OpenAIChatTemplateParams {
-            messages_json: &messages_json,
-            tools_json: Some(&tools_json),
-            tool_choice: Some("auto"),
-            json_schema: None,
-            grammar: None,
-            reasoning_format: None,
-            chat_template_kwargs: Some("{}"),
-            add_generation_prompt: true,
-            use_jinja: true,
-            parallel_tool_calls: false,
-            enable_thinking: false,
-            add_bos: false,
-            add_eos: false,
-            parse_tool_calls: false,
-        },
-    )?;
+    let jinja_tpl = model.chat_template(None)?;
+    let jinja_tpl = jinja_tpl.to_str()?.to_owned();
 
-    let prompt_tokens = model.str_to_token(&formatted_prompt.prompt, AddBos::Always)?;
+    let jinja_tpl= replace_python_style_get(&jinja_tpl);
+
+    let env = Environment::new();
+    let tmpl = env.template_from_str(&jinja_tpl)?;
+
+    let formatted_prompt = tmpl.render(context!{
+        messages => messages,
+        tools => tools_json,
+        add_generation_prompt => true,
+    })?;
+
+    let prompt_tokens = model.str_to_token(&formatted_prompt, AddBos::Always)?;
     let mut batch = LlamaBatch::new(prompt_tokens.len(), 1);
     batch.add_sequence(&prompt_tokens, 0, false)?;
     context.decode(&mut batch)?;

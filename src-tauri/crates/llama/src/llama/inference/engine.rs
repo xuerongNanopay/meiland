@@ -154,8 +154,12 @@ impl<'engine> LlamaContext4<'engine> {
         Ok(tokens.len() as i32)
     }
 
-    pub fn decode_mtmd(&mut self, messages: &[LlamaChatMessage], bitmaps: &[&MtmdBitmap], seq_id: i32, seq_pos:i32, last_logit:bool) {
+    pub fn decode_mtmd(&mut self, messages: &[LlamaChatMessage], bitmaps: &[&MtmdBitmap], seq_id: i32, seq_pos:i32, last_logit:bool) -> Result<(), String>{
+        let prompt = self.apply_template(messages)?;
 
+        let tokens = self.str_to_token(&prompt)?;
+
+        Ok(())
     }
 
     pub fn decode_batch(&mut self, batch: &mut LlamaBatch4) -> Result<(), String> {
@@ -195,9 +199,8 @@ impl<'engine> LlamaContext4<'engine> {
         Ok(self
             .engine
             .model
-            .apply_chat_template_with_tools_oaicompat(&self.template, &messages, None, None, true)
-            .map_err(|e| format!("Llama Template Error: {:#?}", e))?
-            .prompt)
+            .apply_chat_template(&self.template, &messages, true)
+            .map_err(|e| format!("Llama Template Error: {:#?}", e))?)
     }
 
     pub fn str_to_token(&self, prompt: &str) -> Result<Vec<LlamaToken>, String> {
